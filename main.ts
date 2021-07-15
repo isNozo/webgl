@@ -14,11 +14,12 @@ const main = () => {
   const vsSource = `
     attribute vec3 position;
     attribute vec4 color;
+    uniform mat4 mvpMatrix;
     varying vec4 vColor;
     
     void main(void){
         vColor = color;
-        gl_Position = vec4(position, 1.0);
+        gl_Position = mvpMatrix * vec4(position, 1.0);
     }
     `;
 
@@ -39,6 +40,9 @@ const main = () => {
     attribLocations: {
       position: gl.getAttribLocation(shaderProgram, "position"),
       color: gl.getAttribLocation(shaderProgram, "color"),
+    },
+    uniformLocations: {
+      mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
     },
   };
 
@@ -112,7 +116,7 @@ function initBuffers(gl: any) {
 
 function drawScene(
   gl: WebGLRenderingContext,
-  programInfo: { program: any; attribLocations: any },
+  programInfo: { program: any; attribLocations: any; uniformLocations: any },
   buffers: { position: any; color: any }
 ) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -121,6 +125,17 @@ function drawScene(
   gl.depthFunc(gl.LEQUAL);
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const mMatrix = Mat4.identity(Mat4.create());
+  const vMatrix = Mat4.identity(Mat4.create());
+  const pMatrix = Mat4.identity(Mat4.create());
+  const mvpMatrix = Mat4.identity(Mat4.create());
+
+  Mat4.lookAt([0.0, 1.0, 3.0], [0, 0, 0], [0, 1, 0], vMatrix);
+  Mat4.perspective(90, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
+
+  Mat4.multiply(pMatrix, vMatrix, mvpMatrix);
+  Mat4.multiply(mvpMatrix, mMatrix, mvpMatrix);
 
   {
     const numComponents = 2;
@@ -159,6 +174,8 @@ function drawScene(
   }
 
   gl.useProgram(programInfo.program);
+
+  gl.uniformMatrix4fv(programInfo.uniformLocations.mvpMatrix, false, mvpMatrix);
 
   {
     const offset = 0;
