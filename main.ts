@@ -70,6 +70,8 @@ function initShaderProgram(gl: any, vsSource: string, fsSource: string) {
     return null;
   }
 
+  gl.useProgram(shaderProgram);
+
   return shaderProgram;
 }
 
@@ -126,62 +128,39 @@ function drawScene(
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+  set_attribute(gl, buffers.position, programInfo.attribLocations.position, 2);
+  set_attribute(gl, buffers.color, programInfo.attribLocations.color, 4);
+
   const mMatrix = Mat4.identity(Mat4.create());
   const vMatrix = Mat4.identity(Mat4.create());
   const pMatrix = Mat4.identity(Mat4.create());
+  const vpMatrix = Mat4.identity(Mat4.create());
   const mvpMatrix = Mat4.identity(Mat4.create());
 
-  Mat4.lookAt([0.0, 1.0, 3.0], [0, 0, 0], [0, 1, 0], vMatrix);
+  Mat4.lookAt([0.0, 0.0, 3.0], [0, 0, 0], [0, 1, 0], vMatrix);
   Mat4.perspective(90, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
+  Mat4.multiply(pMatrix, vMatrix, vpMatrix);
 
-  Mat4.multiply(pMatrix, vMatrix, mvpMatrix);
-  Mat4.multiply(mvpMatrix, mMatrix, mvpMatrix);
-
-  {
-    const numComponents = 2;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.position,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.position);
-  }
-
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.color,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.color);
-  }
-
-  gl.useProgram(programInfo.program);
-
+  Mat4.translate(mMatrix, [1.5, 0.0, 0.0], mMatrix);
+  Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
   gl.uniformMatrix4fv(programInfo.uniformLocations.mvpMatrix, false, mvpMatrix);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
 
-  {
-    const offset = 0;
-    const vertexCount = 4;
-    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
-  }
+  Mat4.identity(mMatrix);
+  Mat4.translate(mMatrix, [-1.5, 0.0, 0.0], mMatrix);
+  Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
+  gl.uniformMatrix4fv(programInfo.uniformLocations.mvpMatrix, false, mvpMatrix);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
 
   gl.flush();
+}
+
+function set_attribute(gl: any, buffer: any, index: number, size: number) {
+  const type = gl.FLOAT;
+  const normalize = false;
+  const stride = 0;
+  const offset = 0;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.vertexAttribPointer(index, size, type, normalize, stride, offset);
+  gl.enableVertexAttribArray(index);
 }

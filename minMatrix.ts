@@ -105,7 +105,7 @@ module Mat4 {
 
   export function translate(
     mat: Float32Array,
-    vec: Float32Array,
+    vec: number[],
     dest: Float32Array
   ) {
     dest[0] = mat[0];
