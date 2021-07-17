@@ -152,13 +152,6 @@ function drawScene(
   },
   buffers: { position: WebGLBuffer | null; color: WebGLBuffer | null }
 ) {
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  gl.clearDepth(1.0);
-  gl.enable(gl.DEPTH_TEST);
-  gl.depthFunc(gl.LEQUAL);
-
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
   set_attribute(gl, buffers.position, programInfo.attribLocations.position, 2);
   set_attribute(gl, buffers.color, programInfo.attribLocations.color, 4);
 
@@ -168,22 +161,57 @@ function drawScene(
   const vpMatrix = Mat4.identity(Mat4.create());
   const mvpMatrix = Mat4.identity(Mat4.create());
 
-  Mat4.lookAt([0.0, 0.0, 3.0], [0, 0, 0], [0, 1, 0], vMatrix);
-  Mat4.perspective(90, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
+  Mat4.lookAt([0.0, 0.0, 5.0], [0, 0, 0], [0, 1, 0], vMatrix);
+  Mat4.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
   Mat4.multiply(pMatrix, vMatrix, vpMatrix);
 
-  Mat4.translate(mMatrix, [1.5, 0.0, 0.0], mMatrix);
-  Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
-  gl.uniformMatrix4fv(programInfo.uniformLocations.mvpMatrix, false, mvpMatrix);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
+  function render(timestamp: number) {
+    const t = timestamp / 1000.0;
 
-  Mat4.identity(mMatrix);
-  Mat4.translate(mMatrix, [-1.5, 0.0, 0.0], mMatrix);
-  Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
-  gl.uniformMatrix4fv(programInfo.uniformLocations.mvpMatrix, false, mvpMatrix);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearDepth(1.0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
 
-  gl.flush();
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    Mat4.identity(mMatrix);
+    Mat4.translate(mMatrix, [Math.cos(t), Math.sin(t) + 1.0, 0.0], mMatrix);
+    Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
+    gl.uniformMatrix4fv(
+      programInfo.uniformLocations.mvpMatrix,
+      false,
+      mvpMatrix
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
+
+    Mat4.identity(mMatrix);
+    Mat4.translate(mMatrix, [1.0, -1.0, 0.0], mMatrix);
+    Mat4.rotate(mMatrix, t, [0.0, 1.0, 0.0], mMatrix);
+    Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
+    gl.uniformMatrix4fv(
+      programInfo.uniformLocations.mvpMatrix,
+      false,
+      mvpMatrix
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
+
+    Mat4.identity(mMatrix);
+    Mat4.translate(mMatrix, [-1.0, -1.0, 0.0], mMatrix);
+    Mat4.scale(mMatrix, [Math.sin(t), Math.sin(t), 0.0], mMatrix);
+    Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
+    gl.uniformMatrix4fv(
+      programInfo.uniformLocations.mvpMatrix,
+      false,
+      mvpMatrix
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
+
+    gl.flush();
+
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
 }
 
 function set_attribute(

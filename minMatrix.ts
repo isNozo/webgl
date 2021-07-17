@@ -79,11 +79,7 @@ module Mat4 {
     return dest;
   }
 
-  export function scale(
-    mat: Float32Array,
-    vec: Float32Array,
-    dest: Float32Array
-  ) {
+  export function scale(mat: Float32Array, vec: number[], dest: Float32Array) {
     dest[0] = mat[0] * vec[0];
     dest[1] = mat[1] * vec[0];
     dest[2] = mat[2] * vec[0];
@@ -130,7 +126,7 @@ module Mat4 {
   export function rotate(
     mat: Float32Array,
     angle: number,
-    axis: Float32Array,
+    axis: number[],
     dest: Float32Array
   ) {
     var sq = Math.sqrt(
