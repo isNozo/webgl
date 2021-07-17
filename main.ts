@@ -1,4 +1,4 @@
-const main = () => {
+window.onload = () => {
   const canvas = document.querySelector("#glCanvas");
 
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -35,6 +35,10 @@ const main = () => {
 
   const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 
+  if (!shaderProgram) {
+    throw new Error("fail to init shaderProgram");
+  }
+
   const programInfo = {
     program: shaderProgram,
     attribLocations: {
@@ -46,26 +50,51 @@ const main = () => {
     },
   };
 
-  const buffers = initBuffers(gl);
+  const buffers = {
+    // prettier-ignore
+    position: initBuffer(gl, [
+      0.0, 1.0,
+      1.0, 0.0,
+      -1.0, 0.0
+    ]),
+    // prettier-ignore
+    color: initBuffer(gl, [
+      1.0, 0.0, 0.0,
+      1.0, 0.0, 1.0,
+      0.0, 1.0, 0.0,
+      0.0, 1.0, 1.0
+    ]),
+  };
 
   drawScene(gl, programInfo, buffers);
 };
 
-window.onload = main;
-
-function initShaderProgram(gl: any, vsSource: string, fsSource: string) {
+function initShaderProgram(
+  gl: WebGLRenderingContext,
+  vsSource: string,
+  fsSource: string
+): WebGLProgram | null {
   const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
   const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
+  if (!vertexShader || !fragmentShader) {
+    return null;
+  }
+
   const shaderProgram = gl.createProgram();
+
+  if (!shaderProgram) {
+    return null;
+  }
+
   gl.attachShader(shaderProgram, vertexShader);
   gl.attachShader(shaderProgram, fragmentShader);
   gl.linkProgram(shaderProgram);
 
   if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
     console.log(
-      "Unable to initialize the shader program: " +
-        gl.getProgramInfoLog(shaderProgram)
+      "Unable to initialize the shader program: ",
+      gl.getProgramInfoLog(shaderProgram)
     );
     return null;
   }
@@ -75,16 +104,25 @@ function initShaderProgram(gl: any, vsSource: string, fsSource: string) {
   return shaderProgram;
 }
 
-function loadShader(gl: any, type: any, source: string) {
+function loadShader(
+  gl: WebGLRenderingContext,
+  type: number,
+  source: string
+): WebGLShader | null {
   const shader = gl.createShader(type);
 
-  gl.shaderSource(shader, source);
+  if (!shader) {
+    console.log("An error occurred creating the shaders: ", type);
+    return null;
+  }
 
+  gl.shaderSource(shader, source);
   gl.compileShader(shader);
 
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.log(
-      "An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader)
+      "An error occurred compiling the shaders: ",
+      gl.getShaderInfoLog(shader)
     );
     gl.deleteShader(shader);
     return null;
@@ -93,33 +131,26 @@ function loadShader(gl: any, type: any, source: string) {
   return shader;
 }
 
-function initBuffers(gl: any) {
-  const positionBuffer = gl.createBuffer();
+function initBuffer(
+  gl: WebGLRenderingContext,
+  buffer: number[]
+): WebGLBuffer | null {
+  const glBuffer = gl.createBuffer();
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bindBuffer(gl.ARRAY_BUFFER, glBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(buffer), gl.STATIC_DRAW);
 
-  const positions = [0.0, 1.0, 1.0, 0.0, -1.0, 0.0];
-
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-  const colorBuffer = gl.createBuffer();
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-
-  const colors = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0];
-
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-
-  return {
-    position: positionBuffer,
-    color: colorBuffer,
-  };
+  return glBuffer;
 }
 
 function drawScene(
   gl: WebGLRenderingContext,
-  programInfo: { program: any; attribLocations: any; uniformLocations: any },
-  buffers: { position: any; color: any }
+  programInfo: {
+    program: WebGLProgram;
+    attribLocations: any;
+    uniformLocations: any;
+  },
+  buffers: { position: WebGLBuffer | null; color: WebGLBuffer | null }
 ) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clearDepth(1.0);
@@ -155,7 +186,12 @@ function drawScene(
   gl.flush();
 }
 
-function set_attribute(gl: any, buffer: any, index: number, size: number) {
+function set_attribute(
+  gl: WebGLRenderingContext,
+  buffer: WebGLBuffer | null,
+  index: number,
+  size: number
+) {
   const type = gl.FLOAT;
   const normalize = false;
   const stride = 0;
