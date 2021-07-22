@@ -14,22 +14,28 @@ window.onload = () => {
   const vsSource = `
     attribute vec3 position;
     attribute vec4 color;
-    uniform mat4 mvpMatrix;
-    varying vec4 vColor;
+    attribute vec2 textureCoord;
+    uniform   mat4 mvpMatrix;
+    varying   vec4 vColor;
+    varying   vec2 vTextureCoord;
     
     void main(void){
-        vColor = color;
-        gl_Position = mvpMatrix * vec4(position, 1.0);
+        vColor        = color;
+        vTextureCoord = textureCoord;
+        gl_Position   = mvpMatrix * vec4(position, 1.0);
     }
     `;
 
   const fsSource = `
     precision mediump float;
 
-    varying vec4 vColor;
-
+    uniform sampler2D texture;
+    varying vec4      vColor;
+    varying vec2      vTextureCoord;
+    
     void main(void){
-        gl_FragColor = vColor;
+        vec4 smpColor = texture2D(texture, vTextureCoord);
+        gl_FragColor  = vColor * smpColor;
     }
     `;
 
@@ -44,9 +50,11 @@ window.onload = () => {
     attribLocations: {
       position: gl.getAttribLocation(shaderProgram, "position"),
       color: gl.getAttribLocation(shaderProgram, "color"),
+      texture: gl.getAttribLocation(shaderProgram, "textureCoord"),
     },
     uniformLocations: {
       mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
+      texture: gl.getUniformLocation(shaderProgram, "texture"),
     },
   };
 
@@ -68,58 +76,103 @@ window.onload = () => {
     }
   }
 
+  // prettier-ignore
+  const idxbuff = [
+    0,  1,  2,      0,  2,  3,    // 前面
+    4,  5,  6,      4,  6,  7,    // 背面
+    8,  9,  10,     8,  10, 11,   // 上面
+    12, 13, 14,     12, 14, 15,   // 底面
+    16, 17, 18,     16, 18, 19,   // 右側面
+    20, 21, 22,     20, 22, 23    // 左側面
+  ]
+
+  // prettier-ignore
+  const vbuff = [
+    // 前面
+    -1.0, -1.0,  1.0,
+     1.0, -1.0,  1.0,
+     1.0,  1.0,  1.0,
+    -1.0,  1.0,  1.0,
+
+    // 背面
+    -1.0, -1.0, -1.0,
+    -1.0,  1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0, -1.0, -1.0,
+
+    // 上面
+    -1.0,  1.0, -1.0,
+    -1.0,  1.0,  1.0,
+     1.0,  1.0,  1.0,
+     1.0,  1.0, -1.0,
+
+    // 底面
+    -1.0, -1.0, -1.0,
+     1.0, -1.0, -1.0,
+     1.0, -1.0,  1.0,
+    -1.0, -1.0,  1.0,
+
+    // 右側面
+     1.0, -1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0,  1.0,  1.0,
+     1.0, -1.0,  1.0,
+
+    // 左側面
+    -1.0, -1.0, -1.0,
+    -1.0, -1.0,  1.0,
+    -1.0,  1.0,  1.0,
+    -1.0,  1.0, -1.0
+  ];
+
+  // prettier-ignore
+  const texbuff = [
+    // 前面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // 背面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // 上面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // 底面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // 右側面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // 左側面
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0
+  ];
+
   const buffers = {
-    // prettier-ignore
-    position: initBuffer(gl, [
-      // 前面
-      -1.0, -1.0,  1.0,
-       1.0, -1.0,  1.0,
-       1.0,  1.0,  1.0,
-      -1.0,  1.0,  1.0,
-
-      // 背面
-      -1.0, -1.0, -1.0,
-      -1.0,  1.0, -1.0,
-       1.0,  1.0, -1.0,
-       1.0, -1.0, -1.0,
-
-      // 上面
-      -1.0,  1.0, -1.0,
-      -1.0,  1.0,  1.0,
-       1.0,  1.0,  1.0,
-       1.0,  1.0, -1.0,
-
-      // 底面
-      -1.0, -1.0, -1.0,
-       1.0, -1.0, -1.0,
-       1.0, -1.0,  1.0,
-      -1.0, -1.0,  1.0,
-
-      // 右側面
-       1.0, -1.0, -1.0,
-       1.0,  1.0, -1.0,
-       1.0,  1.0,  1.0,
-       1.0, -1.0,  1.0,
-
-      // 左側面
-      -1.0, -1.0, -1.0,
-      -1.0, -1.0,  1.0,
-      -1.0,  1.0,  1.0,
-      -1.0,  1.0, -1.0
-    ]),
-    color: initBuffer(gl, generatedColors),
-    // prettier-ignore
-    index: initIdxBuffer(gl, [
-      0,  1,  2,      0,  2,  3,    // 前面
-      4,  5,  6,      4,  6,  7,    // 背面
-      8,  9,  10,     8,  10, 11,   // 上面
-      12, 13, 14,     12, 14, 15,   // 底面
-      16, 17, 18,     16, 18, 19,   // 右側面
-      20, 21, 22,     20, 22, 23    // 左側面
-    ]),
+    position: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(vbuff)),
+    color: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(generatedColors)),
+    index: initBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idxbuff)),
+    index_len: idxbuff.length,
+    texture: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(texbuff)),
   };
 
-  drawScene(gl, programInfo, buffers);
+  const texture = loadTexture(
+    gl,
+    "https://c1.staticflickr.com/9/8873/18598400202_3af67ef38f_q.jpg"
+  );
+
+  drawScene(gl, programInfo, buffers, texture);
 };
 
 function initShaderProgram(
@@ -186,30 +239,48 @@ function loadShader(
 
 function initBuffer(
   gl: WebGLRenderingContext,
-  buffer: number[]
+  target: number,
+  buffer: BufferSource
 ): WebGLBuffer | null {
   const glBuffer = gl.createBuffer();
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, glBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(buffer), gl.STATIC_DRAW);
+  gl.bindBuffer(target, glBuffer);
+  gl.bufferData(target, buffer, gl.STATIC_DRAW);
 
   return glBuffer;
 }
 
-function initIdxBuffer(
+function loadTexture(
   gl: WebGLRenderingContext,
-  buffer: number[]
-): [WebGLBuffer | null, number] {
-  const glBuffer = gl.createBuffer();
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBuffer);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(buffer),
-    gl.STATIC_DRAW
+  url: string
+): WebGLTexture | null {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 255, 255])
   );
 
-  return [glBuffer, buffer.length];
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  const image = new Image();
+  image.onload = function () {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  };
+  image.crossOrigin = "";
+  image.src = url;
+
+  return texture;
 }
 
 function drawScene(
@@ -222,13 +293,17 @@ function drawScene(
   buffers: {
     position: WebGLBuffer | null;
     color: WebGLBuffer | null;
-    index: [WebGLBuffer | null, number];
-  }
+    index: WebGLBuffer | null;
+    index_len: number;
+    texture: WebGLBuffer | null;
+  },
+  texture: WebGLTexture | null
 ) {
   set_attribute(gl, buffers.position, programInfo.attribLocations.position, 3);
   set_attribute(gl, buffers.color, programInfo.attribLocations.color, 4);
+  set_attribute(gl, buffers.texture, programInfo.attribLocations.texture, 2);
 
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index[0]);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
 
   const mMatrix = Mat4.identity(Mat4.create());
   const vMatrix = Mat4.identity(Mat4.create());
@@ -240,15 +315,19 @@ function drawScene(
   Mat4.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
   Mat4.multiply(pMatrix, vMatrix, vpMatrix);
 
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
+  gl.activeTexture(gl.TEXTURE0);
+
   function render(timestamp: number) {
     const t = timestamp / 1000.0;
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0);
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(programInfo.uniformLocations.texture, 0);
 
     Mat4.identity(mMatrix);
     Mat4.rotate(mMatrix, t, [0.0, 1.0, 0.0], mMatrix);
@@ -259,7 +338,8 @@ function drawScene(
       false,
       mvpMatrix
     );
-    gl.drawElements(gl.TRIANGLES, buffers.index[1], gl.UNSIGNED_SHORT, 0);
+
+    gl.drawElements(gl.TRIANGLES, buffers.index_len, gl.UNSIGNED_SHORT, 0);
 
     gl.flush();
 
