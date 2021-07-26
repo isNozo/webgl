@@ -45,79 +45,33 @@ window.onload = () => {
     throw new Error("fail to init shaderProgram");
   }
 
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      position: gl.getAttribLocation(shaderProgram, "position"),
-      color: gl.getAttribLocation(shaderProgram, "color"),
-      texture: gl.getAttribLocation(shaderProgram, "textureCoord"),
-    },
-    uniformLocations: {
-      mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
-      texture: gl.getUniformLocation(shaderProgram, "texture"),
-    },
-  };
-
-  const colors = [
-    [1.0, 1.0, 1.0, 1.0], // 前面: 白
-    [1.0, 0.0, 0.0, 1.0], // 背面: 赤
-    [0.0, 1.0, 0.0, 1.0], // 上面: 緑
-    [0.0, 0.0, 1.0, 1.0], // 底面: 青
-    [1.0, 1.0, 0.0, 1.0], // 右側面: 黄
-    [1.0, 0.0, 1.0, 1.0], // 左側面: 紫
-  ];
-
-  let generatedColors: number[] = [];
-
-  for (let i = 0; i < 6; i++) {
-    let c = colors[i];
-    for (let j = 0; j < 4; j++) {
-      generatedColors = generatedColors.concat(c);
-    }
-  }
-
   // prettier-ignore
-  const idxbuff = [
-    0,  1,  2,      0,  2,  3,    // 前面
-    4,  5,  6,      4,  6,  7,    // 背面
-    8,  9,  10,     8,  10, 11,   // 上面
-    12, 13, 14,     12, 14, 15,   // 底面
-    16, 17, 18,     16, 18, 19,   // 右側面
-    20, 21, 22,     20, 22, 23    // 左側面
-  ]
-
-  // prettier-ignore
-  const vbuff = [
+  const pos = [
     // 前面
     -1.0, -1.0,  1.0,
      1.0, -1.0,  1.0,
      1.0,  1.0,  1.0,
     -1.0,  1.0,  1.0,
-
     // 背面
     -1.0, -1.0, -1.0,
     -1.0,  1.0, -1.0,
      1.0,  1.0, -1.0,
      1.0, -1.0, -1.0,
-
     // 上面
     -1.0,  1.0, -1.0,
     -1.0,  1.0,  1.0,
      1.0,  1.0,  1.0,
      1.0,  1.0, -1.0,
-
     // 底面
     -1.0, -1.0, -1.0,
      1.0, -1.0, -1.0,
      1.0, -1.0,  1.0,
     -1.0, -1.0,  1.0,
-
     // 右側面
      1.0, -1.0, -1.0,
      1.0,  1.0, -1.0,
      1.0,  1.0,  1.0,
      1.0, -1.0,  1.0,
-
     // 左側面
     -1.0, -1.0, -1.0,
     -1.0, -1.0,  1.0,
@@ -126,7 +80,35 @@ window.onload = () => {
   ];
 
   // prettier-ignore
-  const texbuff = [
+  const col = [
+    1.0, 1.0, 1.0, 1.0, // 前面: 白
+    1.0, 1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0,
+    1.0, 0.0, 0.0, 1.0, // 背面: 赤
+    1.0, 0.0, 0.0, 1.0,
+    1.0, 0.0, 0.0, 1.0,
+    1.0, 0.0, 0.0, 1.0,
+    0.0, 1.0, 0.0, 1.0, // 上面: 緑
+    0.0, 1.0, 0.0, 1.0,
+    0.0, 1.0, 0.0, 1.0,
+    0.0, 1.0, 0.0, 1.0,
+    0.0, 0.0, 1.0, 1.0, // 底面: 青
+    0.0, 0.0, 1.0, 1.0,
+    0.0, 0.0, 1.0, 1.0,
+    0.0, 0.0, 1.0, 1.0,
+    1.0, 1.0, 0.0, 1.0, // 右側面: 黄
+    1.0, 1.0, 0.0, 1.0,
+    1.0, 1.0, 0.0, 1.0,
+    1.0, 1.0, 0.0, 1.0,
+    1.0, 0.0, 1.0, 1.0, // 左側面: 紫
+    1.0, 0.0, 1.0, 1.0,
+    1.0, 0.0, 1.0, 1.0,
+    1.0, 0.0, 1.0, 1.0,
+  ];
+
+  // prettier-ignore
+  const tex = [
     // 前面
     0.0,  0.0,
     1.0,  0.0,
@@ -159,20 +141,52 @@ window.onload = () => {
     0.0,  1.0
   ];
 
-  const buffers = {
-    position: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(vbuff)),
-    color: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(generatedColors)),
-    index: initBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idxbuff)),
-    index_len: idxbuff.length,
-    texture: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(texbuff)),
+  // prettier-ignore
+  const idx = [
+    0,  1,  2,      0,  2,  3,    // 前面
+    4,  5,  6,      4,  6,  7,    // 背面
+    8,  9,  10,     8,  10, 11,   // 上面
+    12, 13, 14,     12, 14, 15,   // 底面
+    16, 17, 18,     16, 18, 19,   // 右側面
+    20, 21, 22,     20, 22, 23    // 左側面
+  ]
+
+  const attrs = [
+    {
+      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(pos)),
+      index: gl.getAttribLocation(shaderProgram, "position"),
+      size: 3,
+    },
+    {
+      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(col)),
+      index: gl.getAttribLocation(shaderProgram, "color"),
+      size: 4,
+    },
+    {
+      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(tex)),
+      index: gl.getAttribLocation(shaderProgram, "textureCoord"),
+      size: 2,
+    },
+  ];
+  attrs.map((attr) => {
+    set_attribute(gl, attr);
+  });
+
+  const uniformLocations = {
+    mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
+    texture: gl.getUniformLocation(shaderProgram, "texture"),
   };
+
+  const idxbuf = initBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx));
+  const idxlen = idx.length;
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxbuf);
 
   const texture = loadTexture(
     gl,
     "https://c1.staticflickr.com/9/8873/18598400202_3af67ef38f_q.jpg"
   );
 
-  drawScene(gl, programInfo, buffers, texture);
+  drawScene(gl, uniformLocations, idxlen, texture);
 };
 
 function initShaderProgram(
@@ -250,6 +264,19 @@ function initBuffer(
   return glBuffer;
 }
 
+function set_attribute(
+  gl: WebGLRenderingContext,
+  attr: {
+    buffer: WebGLBuffer | null;
+    index: number;
+    size: number;
+  }
+) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
+  gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(attr.index);
+}
+
 function loadTexture(
   gl: WebGLRenderingContext,
   url: string
@@ -285,26 +312,13 @@ function loadTexture(
 
 function drawScene(
   gl: WebGLRenderingContext,
-  programInfo: {
-    program: WebGLProgram;
-    attribLocations: any;
-    uniformLocations: any;
+  uniformLocations: {
+    mvpMatrix: WebGLUniformLocation | null;
+    texture: WebGLUniformLocation | null;
   },
-  buffers: {
-    position: WebGLBuffer | null;
-    color: WebGLBuffer | null;
-    index: WebGLBuffer | null;
-    index_len: number;
-    texture: WebGLBuffer | null;
-  },
+  idxlen: number,
   texture: WebGLTexture | null
 ) {
-  set_attribute(gl, buffers.position, programInfo.attribLocations.position, 3);
-  set_attribute(gl, buffers.color, programInfo.attribLocations.color, 4);
-  set_attribute(gl, buffers.texture, programInfo.attribLocations.texture, 2);
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
-
   const mMatrix = Mat4.identity(Mat4.create());
   const vMatrix = Mat4.identity(Mat4.create());
   const pMatrix = Mat4.identity(Mat4.create());
@@ -327,38 +341,19 @@ function drawScene(
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(programInfo.uniformLocations.texture, 0);
+    gl.uniform1i(uniformLocations.texture, 0);
 
     Mat4.identity(mMatrix);
     Mat4.rotate(mMatrix, t, [0.0, 1.0, 0.0], mMatrix);
     Mat4.rotate(mMatrix, t, [1.0, 1.0, 0.0], mMatrix);
     Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
-    gl.uniformMatrix4fv(
-      programInfo.uniformLocations.mvpMatrix,
-      false,
-      mvpMatrix
-    );
+    gl.uniformMatrix4fv(uniformLocations.mvpMatrix, false, mvpMatrix);
 
-    gl.drawElements(gl.TRIANGLES, buffers.index_len, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, idxlen, gl.UNSIGNED_SHORT, 0);
 
     gl.flush();
 
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);
-}
-
-function set_attribute(
-  gl: WebGLRenderingContext,
-  buffer: WebGLBuffer | null,
-  index: number,
-  size: number
-) {
-  const type = gl.FLOAT;
-  const normalize = false;
-  const stride = 0;
-  const offset = 0;
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.vertexAttribPointer(index, size, type, normalize, stride, offset);
-  gl.enableVertexAttribArray(index);
 }
