@@ -5,37 +5,35 @@ window.onload = () => {
     throw new Error("canvas not found");
   }
 
-  const gl = canvas.getContext("webgl");
+  const gl = canvas.getContext("webgl2");
 
   if (!gl) {
     throw new Error("fail to init WebGL");
   }
 
-  const vsSource = `
-    attribute vec3 position;
-    attribute vec4 color;
-    attribute vec2 textureCoord;
-    uniform   mat4 mvpMatrix;
-    varying   vec4 vColor;
-    varying   vec2 vTextureCoord;
+  const vsSource = `#version 300 es
+    in vec3 position;
+    in vec4 color;
+    
+    uniform mat4 mvpMatrix;
+    
+    out vec4 vColor;
     
     void main(void){
-        vColor        = color;
-        vTextureCoord = textureCoord;
-        gl_Position   = mvpMatrix * vec4(position, 1.0);
+        vColor = color;
+        gl_Position = mvpMatrix * vec4(position, 1.0);
     }
     `;
 
-  const fsSource = `
-    precision mediump float;
+  const fsSource = `#version 300 es
+    precision highp float;
 
-    uniform sampler2D texture;
-    varying vec4      vColor;
-    varying vec2      vTextureCoord;
+    in vec4 vColor;
+
+    out vec4 outColor;
     
     void main(void){
-        vec4 smpColor = texture2D(texture, vTextureCoord);
-        gl_FragColor  = vColor * smpColor;
+        outColor = vColor;
     }
     `;
 
@@ -108,40 +106,6 @@ window.onload = () => {
   ];
 
   // prettier-ignore
-  const tex = [
-    // 前面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0,
-    // 背面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0,
-    // 上面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0,
-    // 底面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0,
-    // 右側面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0,
-    // 左側面
-    0.0,  0.0,
-    1.0,  0.0,
-    1.0,  1.0,
-    0.0,  1.0
-  ];
-
-  // prettier-ignore
   const idx = [
     0,  1,  2,      0,  2,  3,    // 前面
     4,  5,  6,      4,  6,  7,    // 背面
@@ -162,11 +126,6 @@ window.onload = () => {
       index: gl.getAttribLocation(shaderProgram, "color"),
       size: 4,
     },
-    {
-      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(tex)),
-      index: gl.getAttribLocation(shaderProgram, "textureCoord"),
-      size: 2,
-    },
   ];
   attrs.map((attr) => {
     set_attribute(gl, attr);
@@ -174,19 +133,13 @@ window.onload = () => {
 
   const uniformLocations = {
     mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
-    texture: gl.getUniformLocation(shaderProgram, "texture"),
   };
 
   const idxbuf = initBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx));
   const idxlen = idx.length;
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxbuf);
 
-  const texture = loadTexture(
-    gl,
-    "https://c1.staticflickr.com/9/8873/18598400202_3af67ef38f_q.jpg"
-  );
-
-  drawScene(gl, uniformLocations, idxlen, texture);
+  drawScene(gl, uniformLocations, idxlen);
 };
 
 function initShaderProgram(
@@ -277,47 +230,12 @@ function set_attribute(
   gl.enableVertexAttribArray(attr.index);
 }
 
-function loadTexture(
-  gl: WebGLRenderingContext,
-  url: string
-): WebGLTexture | null {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    1,
-    1,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    new Uint8Array([0, 0, 255, 255])
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-  const image = new Image();
-  image.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-  };
-  image.crossOrigin = "";
-  image.src = url;
-
-  return texture;
-}
-
 function drawScene(
   gl: WebGLRenderingContext,
   uniformLocations: {
     mvpMatrix: WebGLUniformLocation | null;
-    texture: WebGLUniformLocation | null;
   },
-  idxlen: number,
-  texture: WebGLTexture | null
+  idxlen: number
 ) {
   const mMatrix = Mat4.identity(Mat4.create());
   const vMatrix = Mat4.identity(Mat4.create());
@@ -339,9 +257,6 @@ function drawScene(
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(uniformLocations.texture, 0);
 
     Mat4.identity(mMatrix);
     Mat4.rotate(mMatrix, t, [0.0, 1.0, 0.0], mMatrix);
