@@ -115,35 +115,32 @@ window.onload = () => {
     20, 21, 22,     20, 22, 23    // 左側面
   ]
 
-  const attrs = [
+  const cube_attrs = [
     {
-      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(pos)),
+      buffer: pos,
       index: gl.getAttribLocation(shaderProgram, "position"),
       size: 3,
     },
     {
-      buffer: initBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(col)),
+      buffer: col,
       index: gl.getAttribLocation(shaderProgram, "color"),
       size: 4,
     },
   ];
-  attrs.map((attr) => {
-    set_attribute(gl, attr);
-  });
+  const cube_vao = {
+    vao: create_vao(gl, cube_attrs, idx),
+    idx_len: idx.length,
+  };
 
   const uniformLocations = {
     mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
   };
 
-  const idxbuf = initBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx));
-  const idxlen = idx.length;
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxbuf);
-
-  drawScene(gl, uniformLocations, idxlen);
+  drawScene(gl, uniformLocations, cube_vao);
 };
 
 function initShaderProgram(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   vsSource: string,
   fsSource: string
 ): WebGLProgram | null {
@@ -178,7 +175,7 @@ function initShaderProgram(
 }
 
 function loadShader(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   type: number,
   source: string
 ): WebGLShader | null {
@@ -204,38 +201,53 @@ function loadShader(
   return shader;
 }
 
-function initBuffer(
-  gl: WebGLRenderingContext,
-  target: number,
-  buffer: BufferSource
-): WebGLBuffer | null {
-  const glBuffer = gl.createBuffer();
-
-  gl.bindBuffer(target, glBuffer);
-  gl.bufferData(target, buffer, gl.STATIC_DRAW);
-
-  return glBuffer;
-}
-
-function set_attribute(
-  gl: WebGLRenderingContext,
-  attr: {
-    buffer: WebGLBuffer | null;
+function create_vao(
+  gl: WebGL2RenderingContext,
+  attrs: {
+    buffer: number[];
     index: number;
     size: number;
+  }[],
+  index_buffer: number[]
+): WebGLVertexArrayObject | null {
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+
+  attrs.map((attr) => {
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array(attr.buffer),
+      gl.STATIC_DRAW
+    );
+    gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(attr.index);
+  });
+
+  if (index_buffer) {
+    const ibo = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(
+      gl.ELEMENT_ARRAY_BUFFER,
+      new Uint16Array(index_buffer),
+      gl.STATIC_DRAW
+    );
   }
-) {
-  gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
-  gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(attr.index);
+
+  gl.bindVertexArray(null);
+  return vao;
 }
 
 function drawScene(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   uniformLocations: {
     mvpMatrix: WebGLUniformLocation | null;
   },
-  idxlen: number
+  target: {
+    vao: WebGLVertexArrayObject | null;
+    idx_len: number;
+  }
 ) {
   const mMatrix = Mat4.identity(Mat4.create());
   const vMatrix = Mat4.identity(Mat4.create());
@@ -264,7 +276,8 @@ function drawScene(
     Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
     gl.uniformMatrix4fv(uniformLocations.mvpMatrix, false, mvpMatrix);
 
-    gl.drawElements(gl.TRIANGLES, idxlen, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(target.vao);
+    gl.drawElements(gl.TRIANGLES, target.idx_len, gl.UNSIGNED_SHORT, 0);
 
     gl.flush();
 
