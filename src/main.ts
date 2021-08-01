@@ -14,13 +14,16 @@ window.onload = () => {
   const vsSource = `#version 300 es
     in vec3 position;
     in vec4 color;
+    in vec2 texcoord;
     
     uniform mat4 mvpMatrix;
     
     out vec4 vColor;
+    out vec2 vTexcoord;
     
     void main(void){
         vColor = color;
+        vTexcoord = texcoord;
         gl_Position = mvpMatrix * vec4(position, 1.0);
     }
     `;
@@ -29,11 +32,14 @@ window.onload = () => {
     precision highp float;
 
     in vec4 vColor;
+    in vec2 vTexcoord;
+
+    uniform sampler2D uImage;
 
     out vec4 outColor;
     
     void main(void){
-        outColor = vColor;
+        outColor = texture(uImage, vTexcoord) * vColor;
     }
     `;
 
@@ -45,74 +51,31 @@ window.onload = () => {
 
   // prettier-ignore
   const pos = [
-    // 前面
-    -1.0, -1.0,  1.0,
-     1.0, -1.0,  1.0,
-     1.0,  1.0,  1.0,
-    -1.0,  1.0,  1.0,
-    // 背面
-    -1.0, -1.0, -1.0,
-    -1.0,  1.0, -1.0,
-     1.0,  1.0, -1.0,
-     1.0, -1.0, -1.0,
-    // 上面
-    -1.0,  1.0, -1.0,
-    -1.0,  1.0,  1.0,
-     1.0,  1.0,  1.0,
-     1.0,  1.0, -1.0,
-    // 底面
-    -1.0, -1.0, -1.0,
-     1.0, -1.0, -1.0,
-     1.0, -1.0,  1.0,
-    -1.0, -1.0,  1.0,
-    // 右側面
-     1.0, -1.0, -1.0,
-     1.0,  1.0, -1.0,
-     1.0,  1.0,  1.0,
-     1.0, -1.0,  1.0,
-    // 左側面
-    -1.0, -1.0, -1.0,
-    -1.0, -1.0,  1.0,
-    -1.0,  1.0,  1.0,
-    -1.0,  1.0, -1.0
+    -1.0, -1.0, 0.0,
+     1.0, -1.0, 0.0,
+    -1.0,  1.0, 0.0,
+     1.0,  1.0, 0.0,
   ];
 
   // prettier-ignore
   const col = [
-    1.0, 1.0, 1.0, 1.0, // 前面: 白
-    1.0, 1.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0,
-    1.0, 0.0, 0.0, 1.0, // 背面: 赤
     1.0, 0.0, 0.0, 1.0,
-    1.0, 0.0, 0.0, 1.0,
-    1.0, 0.0, 0.0, 1.0,
-    0.0, 1.0, 0.0, 1.0, // 上面: 緑
     0.0, 1.0, 0.0, 1.0,
-    0.0, 1.0, 0.0, 1.0,
-    0.0, 1.0, 0.0, 1.0,
-    0.0, 0.0, 1.0, 1.0, // 底面: 青
     0.0, 0.0, 1.0, 1.0,
-    0.0, 0.0, 1.0, 1.0,
-    0.0, 0.0, 1.0, 1.0,
-    1.0, 1.0, 0.0, 1.0, // 右側面: 黄
-    1.0, 1.0, 0.0, 1.0,
-    1.0, 1.0, 0.0, 1.0,
-    1.0, 1.0, 0.0, 1.0,
-    1.0, 0.0, 1.0, 1.0, // 左側面: 紫
-    1.0, 0.0, 1.0, 1.0,
-    1.0, 0.0, 1.0, 1.0,
-    1.0, 0.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0,
+  ];
+
+  // prettier-ignore
+  const tex = [
+    0.0, 0.0,
+    1.0, 0.0,
+    0.0, 1.0,
+    1.0, 1.0,
   ];
 
   // prettier-ignore
   const idx = [
-    0,  1,  2,      0,  2,  3,    // 前面
-    4,  5,  6,      4,  6,  7,    // 背面
-    8,  9,  10,     8,  10, 11,   // 上面
-    12, 13, 14,     12, 14, 15,   // 底面
-    16, 17, 18,     16, 18, 19,   // 右側面
-    20, 21, 22,     20, 22, 23    // 左側面
+    0, 1, 2, 1, 2, 3
   ]
 
   const cube_attrs = [
@@ -126,11 +89,43 @@ window.onload = () => {
       index: gl.getAttribLocation(shaderProgram, "color"),
       size: 4,
     },
+    {
+      buffer: tex,
+      index: gl.getAttribLocation(shaderProgram, "texcoord"),
+      size: 2,
+    },
   ];
   const cube_vao = {
     vao: create_vao(gl, cube_attrs, idx),
     idx_len: idx.length,
   };
+
+  const checkerTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, checkerTexture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0, // mip level
+    gl.LUMINANCE, // internal format
+    4, // width
+    4, // height
+    0, // border
+    gl.LUMINANCE, // format
+    gl.UNSIGNED_BYTE, // type
+    // prettier-ignore
+    new Uint8Array([ // data
+      192, 128, 192, 128,
+      128, 192, 128, 192,
+      192, 128, 192, 128,
+      128, 192, 128, 192,
+    ])
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(gl.getUniformLocation(shaderProgram, "uImage"), 0);
 
   const uniformLocations = {
     mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
@@ -221,8 +216,8 @@ function create_vao(
       new Float32Array(attr.buffer),
       gl.STATIC_DRAW
     );
-    gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(attr.index);
+    gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
   });
 
   if (index_buffer) {
@@ -260,8 +255,6 @@ function drawScene(
   Mat4.multiply(pMatrix, vMatrix, vpMatrix);
 
   gl.enable(gl.DEPTH_TEST);
-  gl.depthFunc(gl.LEQUAL);
-  gl.activeTexture(gl.TEXTURE0);
 
   function render(timestamp: number) {
     const t = timestamp / 1000.0;
