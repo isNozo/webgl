@@ -1,9 +1,13 @@
 window.onload = () => {
+  const dstWidth = 3;
+  const dstHeight = 2;
   const canvas = document.querySelector("#glCanvas");
 
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error("canvas not found");
   }
+  canvas.width = dstWidth;
+  canvas.height = dstHeight;
 
   const gl = canvas.getContext("webgl2");
 
@@ -12,34 +16,24 @@ window.onload = () => {
   }
 
   const vsSource = `#version 300 es
-    in vec3 position;
-    in vec4 color;
-    in vec2 texcoord;
-    
-    uniform mat4 mvpMatrix;
-    
-    out vec4 vColor;
-    out vec2 vTexcoord;
-    
+    in vec4 position;
+
     void main(void){
-        vColor = color;
-        vTexcoord = texcoord;
-        gl_Position = mvpMatrix * vec4(position, 1.0);
+        gl_Position = position;
     }
     `;
 
   const fsSource = `#version 300 es
     precision highp float;
 
-    in vec4 vColor;
-    in vec2 vTexcoord;
-
-    uniform sampler2D uImage;
+    uniform sampler2D srcTex;
 
     out vec4 outColor;
     
     void main(void){
-        outColor = texture(uImage, vTexcoord) * vColor;
+        ivec2 texelCoord = ivec2(gl_FragCoord.xy);
+        vec4 value = texelFetch(srcTex, texelCoord, 0);
+        outColor = value * 2.0;
     }
     `;
 
@@ -50,88 +44,55 @@ window.onload = () => {
   }
 
   // prettier-ignore
-  const pos = [
-    -1.0, -1.0, 0.0,
-     1.0, -1.0, 0.0,
-    -1.0,  1.0, 0.0,
-     1.0,  1.0, 0.0,
+  const plane_pos = [
+    -1, -1,
+    -1,  1,
+     1, -1,
+     1, -1,
+    -1,  1,
+     1,  1
   ];
 
-  // prettier-ignore
-  const col = [
-    1.0, 0.0, 0.0, 1.0,
-    0.0, 1.0, 0.0, 1.0,
-    0.0, 0.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0,
-  ];
-
-  // prettier-ignore
-  const tex = [
-    0.0, 0.0,
-    1.0, 0.0,
-    0.0, 1.0,
-    1.0, 1.0,
-  ];
-
-  // prettier-ignore
-  const idx = [
-    0, 1, 2, 1, 2, 3
-  ]
-
-  const cube_attrs = [
+  const plane_attrs = [
     {
-      buffer: pos,
+      buffer: plane_pos,
       index: gl.getAttribLocation(shaderProgram, "position"),
-      size: 3,
-    },
-    {
-      buffer: col,
-      index: gl.getAttribLocation(shaderProgram, "color"),
-      size: 4,
-    },
-    {
-      buffer: tex,
-      index: gl.getAttribLocation(shaderProgram, "texcoord"),
       size: 2,
     },
   ];
-  const cube_vao = {
-    vao: create_vao(gl, cube_attrs, idx),
-    idx_len: idx.length,
-  };
 
-  const checkerTexture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, checkerTexture);
+  const plane_vao = create_vao(gl, plane_attrs, []);
+  gl.bindVertexArray(plane_vao);
+
+  const srcWidth = 3;
+  const srcHeight = 2;
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage2D(
     gl.TEXTURE_2D,
-    0, // mip level
-    gl.LUMINANCE, // internal format
-    4, // width
-    4, // height
-    0, // border
-    gl.LUMINANCE, // format
-    gl.UNSIGNED_BYTE, // type
-    // prettier-ignore
-    new Uint8Array([ // data
-      192, 128, 192, 128,
-      128, 192, 128, 192,
-      192, 128, 192, 128,
-      128, 192, 128, 192,
-    ])
+    0,
+    gl.R8,
+    srcWidth,
+    srcHeight,
+    0,
+    gl.RED,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([1, 2, 3, 4, 5, 6])
   );
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  gl.activeTexture(gl.TEXTURE0);
-  gl.uniform1i(gl.getUniformLocation(shaderProgram, "uImage"), 0);
+  gl.drawArrays(gl.TRIANGLES, 0, plane_pos.length);
 
-  const uniformLocations = {
-    mvpMatrix: gl.getUniformLocation(shaderProgram, "mvpMatrix"),
-  };
+  const results = new Uint8Array(dstWidth * dstHeight * 4);
+  gl.readPixels(0, 0, dstWidth, dstHeight, gl.RGBA, gl.UNSIGNED_BYTE, results);
 
-  drawScene(gl, uniformLocations, cube_vao);
+  for (let i = 0; i < dstWidth * dstHeight; ++i) {
+    console.log(i, results[i * 4]);
+  }
 
   function initShaderProgram(
     gl: WebGL2RenderingContext,
@@ -231,50 +192,5 @@ window.onload = () => {
 
     gl.bindVertexArray(null);
     return vao;
-  }
-
-  function drawScene(
-    gl: WebGL2RenderingContext,
-    uniformLocations: {
-      mvpMatrix: WebGLUniformLocation | null;
-    },
-    target: {
-      vao: WebGLVertexArrayObject | null;
-      idx_len: number;
-    }
-  ) {
-    const mMatrix = Mat4.identity(Mat4.create());
-    const vMatrix = Mat4.identity(Mat4.create());
-    const pMatrix = Mat4.identity(Mat4.create());
-    const vpMatrix = Mat4.identity(Mat4.create());
-    const mvpMatrix = Mat4.identity(Mat4.create());
-
-    Mat4.lookAt([0.0, 1.0, 5.0], [0, 0, 0], [0, 1, 0], vMatrix);
-    Mat4.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 100, pMatrix);
-    Mat4.multiply(pMatrix, vMatrix, vpMatrix);
-
-    gl.enable(gl.DEPTH_TEST);
-
-    function render(timestamp: number) {
-      const t = timestamp / 1000.0;
-
-      gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      gl.clearDepth(1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-      Mat4.identity(mMatrix);
-      Mat4.rotate(mMatrix, t, [0.0, 1.0, 0.0], mMatrix);
-      Mat4.rotate(mMatrix, t, [1.0, 1.0, 0.0], mMatrix);
-      Mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
-      gl.uniformMatrix4fv(uniformLocations.mvpMatrix, false, mvpMatrix);
-
-      gl.bindVertexArray(target.vao);
-      gl.drawElements(gl.TRIANGLES, target.idx_len, gl.UNSIGNED_SHORT, 0);
-
-      gl.flush();
-
-      requestAnimationFrame(render);
-    }
-    requestAnimationFrame(render);
   }
 };
