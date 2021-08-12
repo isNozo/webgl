@@ -1,9 +1,13 @@
 window.onload = () => {
+  const dstWidth = 3;
+  const dstHeight = 2;
   const canvas = document.querySelector("#glCanvas");
 
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error("canvas not found");
   }
+  canvas.width = dstWidth;
+  canvas.height = dstHeight;
 
   const gl = canvas.getContext("webgl2");
 
@@ -12,97 +16,90 @@ window.onload = () => {
   }
 
   const vsSource = `#version 300 es
-    in float a;
-    in float b;
-
-    out float sum;
-    out float diff;
-    out float prod;
+    in vec4 position;
 
     void main(void){
-      sum = a + b;
-      diff = a - b;
-      prod = a * b;
+        gl_Position = position;
     }
     `;
 
   const fsSource = `#version 300 es
     precision highp float;
 
+    uniform sampler2D srcTex;
+
+    out vec4 outColor;
+    
     void main(void){
+        ivec2 texelCoord = ivec2(gl_FragCoord.xy);
+        vec4 value = texelFetch(srcTex, texelCoord, 0);
+        outColor = value * 2.0;
     }
     `;
 
-  const shaderProgram = initShaderProgram(gl, vsSource, fsSource, [
-    "sum",
-    "diff",
-    "prod",
-  ]);
+  const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 
   if (!shaderProgram) {
     throw new Error("fail to init shaderProgram");
   }
 
-  const aLoc = gl.getAttribLocation(shaderProgram, "a");
-  const bLoc = gl.getAttribLocation(shaderProgram, "b");
-
-  const a = [1, 2, 3, 4, 5, 6];
-  const b = [3, 6, 9, 12, 15, 18];
-
-  const attrs = [
-    { buffer: a, index: aLoc, size: 1 },
-    { buffer: b, index: bLoc, size: 1 },
+  // prettier-ignore
+  const plane_pos = [
+    -1, -1,
+    -1,  1,
+     1, -1,
+     1, -1,
+    -1,  1,
+     1,  1
   ];
 
-  const vao = create_vao(gl, attrs, []);
+  const plane_attrs = [
+    {
+      buffer: plane_pos,
+      index: gl.getAttribLocation(shaderProgram, "position"),
+      size: 2,
+    },
+  ];
 
-  const tf = gl.createTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+  const plane_vao = create_vao(gl, plane_attrs, []);
+  gl.bindVertexArray(plane_vao);
 
-  const sumBuf = makeBuffer(gl, a.length * 4);
-  const diffBuf = makeBuffer(gl, a.length * 4);
-  const prodBuf = makeBuffer(gl, a.length * 4);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, sumBuf);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, diffBuf);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 2, prodBuf);
+  const srcWidth = 3;
+  const srcHeight = 2;
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.R8,
+    srcWidth,
+    srcHeight,
+    0,
+    gl.RED,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([1, 2, 3, 4, 5, 6])
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.uniform1i(gl.getUniformLocation(shaderProgram, "srcTex"), 0);
 
-  // render
-  gl.bindVertexArray(vao);
-  gl.enable(gl.RASTERIZER_DISCARD);
+  gl.drawArrays(gl.TRIANGLES, 0, plane_pos.length);
 
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
-  gl.beginTransformFeedback(gl.POINTS);
-  gl.drawArrays(gl.POINTS, 0, a.length);
-  gl.endTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+  const results = new Uint8Array(dstWidth * dstHeight * 4);
+  gl.readPixels(0, 0, dstWidth, dstHeight, gl.RGBA, gl.UNSIGNED_BYTE, results);
 
-  gl.disable(gl.RASTERIZER_DISCARD);
-
-  console.log(`a: ${a}`);
-  console.log(`b: ${b}`);
-  printResults(gl, sumBuf, "sumBuf");
-  printResults(gl, diffBuf, "diffBuf");
-  printResults(gl, prodBuf, "prodBuf");
-
-  function printResults(
-    gl: WebGL2RenderingContext,
-    buffer: WebGLBuffer | null,
-    label: string
-  ) {
-    const results = new Float32Array(a.length);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.getBufferSubData(gl.ARRAY_BUFFER, 0, results);
-    console.log(`${label}: ${results}`);
+  for (let i = 0; i < dstWidth * dstHeight; ++i) {
+    console.log(i, results[i * 4]);
   }
 
   function initShaderProgram(
     gl: WebGL2RenderingContext,
     vsSource: string,
-    fsSource: string,
-    varyings: string[]
+    fsSource: string
   ): WebGLProgram | null {
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
@@ -119,14 +116,6 @@ window.onload = () => {
 
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
-
-    if (varyings)
-      gl.transformFeedbackVaryings(
-        shaderProgram,
-        varyings,
-        gl.SEPARATE_ATTRIBS
-      );
-
     gl.linkProgram(shaderProgram);
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
@@ -169,16 +158,6 @@ window.onload = () => {
     return shader;
   }
 
-  function makeBuffer(
-    gl: WebGL2RenderingContext,
-    sizeOrData: any
-  ): WebGLBuffer | null {
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, sizeOrData, gl.STATIC_DRAW);
-    return buf;
-  }
-
   function create_vao(
     gl: WebGL2RenderingContext,
     attrs: {
@@ -192,7 +171,13 @@ window.onload = () => {
     gl.bindVertexArray(vao);
 
     attrs.map((attr) => {
-      const vbo = makeBuffer(gl, new Float32Array(attr.buffer));
+      const vbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(attr.buffer),
+        gl.STATIC_DRAW
+      );
       gl.enableVertexAttribArray(attr.index);
       gl.vertexAttribPointer(attr.index, attr.size, gl.FLOAT, false, 0, 0);
     });
