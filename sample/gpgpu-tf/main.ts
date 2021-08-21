@@ -1,10 +1,12 @@
 window.onload = () => {
   const canvas = document.querySelector("#glCanvas");
+
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error("canvas not found");
   }
 
   const gl = canvas.getContext("webgl2");
+
   if (!gl) {
     throw new Error("fail to init WebGL");
   }
@@ -46,11 +48,6 @@ window.onload = () => {
 
   const a = [1, 2, 3, 4, 5, 6];
   const b = [3, 6, 9, 12, 15, 18];
-
-  const pos_buf1 = [];
-  const pos_buf2 = [];
-  const col_buf1 = [];
-  const col_buf2 = [];
 
   const attrs = [
     { buffer: a, index: aLoc, size: 1 },
@@ -106,13 +103,18 @@ window.onload = () => {
     vsSource: string,
     fsSource: string,
     varyings: string[]
-  ): WebGLProgram {
+  ): WebGLProgram | null {
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
+    if (!vertexShader || !fragmentShader) {
+      return null;
+    }
+
     const shaderProgram = gl.createProgram();
+
     if (!shaderProgram) {
-      throw new Error("creating program");
+      return null;
     }
 
     gl.attachShader(shaderProgram, vertexShader);
@@ -126,8 +128,13 @@ window.onload = () => {
       );
 
     gl.linkProgram(shaderProgram);
+
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-      throw new Error(`initing shader: ${gl.getProgramInfoLog(shaderProgram)}`);
+      console.log(
+        "Unable to initialize the shader program: ",
+        gl.getProgramInfoLog(shaderProgram)
+      );
+      return null;
     }
 
     gl.useProgram(shaderProgram);
@@ -139,17 +146,24 @@ window.onload = () => {
     gl: WebGL2RenderingContext,
     type: number,
     source: string
-  ): WebGLShader {
+  ): WebGLShader | null {
     const shader = gl.createShader(type);
+
     if (!shader) {
-      throw new Error(`creating shader: ${type}`);
+      console.log("An error occurred creating the shaders: ", type);
+      return null;
     }
 
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      throw new Error(`compiling shader: ${gl.getShaderInfoLog(shader)}`);
+      console.log(
+        "An error occurred compiling the shaders: ",
+        gl.getShaderInfoLog(shader)
+      );
+      gl.deleteShader(shader);
+      return null;
     }
 
     return shader;
