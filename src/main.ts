@@ -9,97 +9,55 @@ window.onload = () => {
     throw new Error("fail to init WebGL");
   }
 
-  const vsSource = `#version 300 es
-    in float a;
-    in float b;
-
-    out float sum;
-    out float diff;
-    out float prod;
-
+  const updatePosVS = `#version 300 es
     void main(void){
-      sum = a + b;
-      diff = a - b;
-      prod = a * b;
     }
     `;
 
-  const fsSource = `#version 300 es
+  const updatePosFS = `#version 300 es
     precision highp float;
-
     void main(void){
     }
     `;
 
-  const shaderProgram = initShaderProgram(gl, vsSource, fsSource, [
-    "sum",
-    "diff",
-    "prod",
-  ]);
+  const drawVS = `#version 300 es
+    void main(void){
+      gl_Position = vec4(0,0,0,1);
+      gl_PointSize = 10.0;
+    }
+    `;
 
-  if (!shaderProgram) {
+  const drawFS = `#version 300 es
+    precision highp float;
+    out vec4 outColor;
+    void main(void){
+      outColor = vec4(1,0,0,1);
+    }
+    `;
+
+  const updatePosPrg = initShaderProgram(gl, updatePosVS, updatePosFS, []);
+  const drawPrg = initShaderProgram(gl, drawVS, drawFS, []);
+  if (!updatePosPrg || !drawPrg) {
     throw new Error("fail to init shaderProgram");
   }
 
-  const aLoc = gl.getAttribLocation(shaderProgram, "a");
-  const bLoc = gl.getAttribLocation(shaderProgram, "b");
+  function draw(gl: WebGL2RenderingContext) {
+    function render(t: number) {
+      // update position
+      gl.useProgram(updatePosPrg);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.drawArrays(gl.POINTS, 0, 1);
+      gl.disable(gl.RASTERIZER_DISCARD);
 
-  const a = [1, 2, 3, 4, 5, 6];
-  const b = [3, 6, 9, 12, 15, 18];
+      // draw
+      gl.useProgram(drawPrg);
+      gl.drawArrays(gl.POINTS, 0, 1);
 
-  const pos_buf1 = [];
-  const pos_buf2 = [];
-  const col_buf1 = [];
-  const col_buf2 = [];
-
-  const attrs = [
-    { buffer: a, index: aLoc, size: 1 },
-    { buffer: b, index: bLoc, size: 1 },
-  ];
-
-  const vao = create_vao(gl, attrs, []);
-
-  const tf = gl.createTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
-
-  const sumBuf = makeBuffer(gl, a.length * 4);
-  const diffBuf = makeBuffer(gl, a.length * 4);
-  const prodBuf = makeBuffer(gl, a.length * 4);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, sumBuf);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, diffBuf);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 2, prodBuf);
-
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-  // render
-  gl.bindVertexArray(vao);
-  gl.enable(gl.RASTERIZER_DISCARD);
-
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
-  gl.beginTransformFeedback(gl.POINTS);
-  gl.drawArrays(gl.POINTS, 0, a.length);
-  gl.endTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-
-  gl.disable(gl.RASTERIZER_DISCARD);
-
-  console.log(`a: ${a}`);
-  console.log(`b: ${b}`);
-  printResults(gl, sumBuf, "sumBuf");
-  printResults(gl, diffBuf, "diffBuf");
-  printResults(gl, prodBuf, "prodBuf");
-
-  function printResults(
-    gl: WebGL2RenderingContext,
-    buffer: WebGLBuffer | null,
-    label: string
-  ) {
-    const results = new Float32Array(a.length);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.getBufferSubData(gl.ARRAY_BUFFER, 0, results);
-    console.log(`${label}: ${results}`);
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
   }
+  draw(gl);
 
   function initShaderProgram(
     gl: WebGL2RenderingContext,
@@ -129,8 +87,6 @@ window.onload = () => {
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
       throw new Error(`initing shader: ${gl.getProgramInfoLog(shaderProgram)}`);
     }
-
-    gl.useProgram(shaderProgram);
 
     return shaderProgram;
   }
